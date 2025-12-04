@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>DEV Nguyen Minh — Touch Smooth UI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#06060b;
+      --panel:#0f1117;
+      --glass: rgba(255,255,255,0.02);
+      --neon:#2fe0ff;
+      --accent:#00d1ff;
+      --muted: rgba(255,255,255,0.12);
+      --card:#0b0d11;
+      --soft-glow: 0 8px 30px rgba(47,224,255,0.08);
+      --rounded: 14px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      /* Dùng Orbitron làm phông chữ chính */
+      font-family: "Orbitron", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: radial-gradient( circle at 10% 10%, rgba(0,40,60,0.15), transparent 8%),
+                  linear-gradient(180deg,#02030a 0%, #051222 100%);
+      color:#eaf6ff;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      touch-action: pan-y; /* lock horizontal gestures */
+      overscroll-behavior-x: none;
+      overflow-x: hidden;
+    }
+
+    /* canvas background */
+    #bg-wrap{position:fixed;inset:0;z-index:0;overflow:hidden}
+    canvas{display:block;width:100%;height:100%}
+
+    /* main mock phone card */
+    .device {
+      width: 390px;
+      max-width: 96vw;
+      height: 780px;
+      border-radius: 30px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      box-shadow: 0 30px 80px rgba(2,10,20,0.7), 0 6px 20px rgba(0,0,0,0.6);
+      position:relative;
+      overflow:hidden;
+      z-index:2;
+      border: 1px solid rgba(255,255,255,0.03);
+      display:flex;
+      flex-direction:column;
+      padding:22px;
+    }
+
+    header{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-bottom:14px;
+    }
+    .logo {
+      width:56px;height:56px;border-radius:10px;
+      background: linear-gradient(135deg, rgba(47,224,255,0.12), rgba(0,150,200,0.06));
+      border:1px solid rgba(47,224,255,0.12);
+      display:flex;align-items:center;justify-content:center;
+      font-family: "Orbitron";
+      color:var(--neon);
+      font-weight:700;
+      letter-spacing:0.6px;
+      box-shadow: 0 6px 30px rgba(0,200,255,0.03), 0 0 18px rgba(47,224,255,0.04) inset;
+      transition: transform .3s ease; /* Chậm lại một chút */
+    }
+    .logo:active{ transform: scale(0.96); }
+
+    h1{
+      font-family:"Orbitron";
+      margin:0;
+      font-size:16px;
+      letter-spacing:0.8px;
+      color:var(--neon);
+      text-shadow: 0 2px 14px rgba(47,224,255,0.08);
+    }
+    .subtitle{
+      font-size:11px;color:var(--muted);margin-top:1px;
+    }
+
+    .content{
+      margin-top:6px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      overflow-y:auto;   /* allow only vertical scroll */
+      overflow-x:hidden;
+      padding-right:8px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .section-title{
+      display:flex;align-items:center;gap:8px;color:var(--neon);font-weight:600;
+      font-size:12px;text-transform:uppercase;letter-spacing:1px;
+    }
+
+    /* card + neon pulse - Hiệu ứng mượt, chậm rãi hơn */
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,0.012), rgba(255,255,255,0.008));
+      border-radius:12px;
+      padding:12px;
+      border: 1px solid rgba(255,255,255,0.03);
+      box-shadow: 0 8px 40px rgba(47,224,255,0.06);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      /* Tăng thời gian chuyển động (0.4s) và dùng hàm mượt mà */
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease-out; 
+      position:relative;
+      overflow:visible;
+    }
+    .card:hover{ transform: translateY(-8px); box-shadow: 0 28px 80px rgba(47,224,255,0.22); } /* Tăng hiệu ứng hover */
+
+    .card::after{
+      content:"";
+      position:absolute;
+      inset: -3px;
+      border-radius:14px;
+      background: linear-gradient(90deg, rgba(47,224,255,0.03), rgba(0,150,200,0.03));
+      filter: blur(18px);
+      opacity:0.12;
+      pointer-events:none;
+    }
+
+    .card .left{
+      display:flex;align-items:center;gap:12px;
+    }
+    
+    /* Icon Base Styling - Màu giống nền */
+    .icon{
+      width:54px;height:54px;border-radius:12px;
+      display:flex;align-items:center;justify-content:center;
+      background: linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.05));
+      border:1px solid rgba(47,224,255,0.05); 
+      color:rgba(255,255,255,0.01); 
+      font-size:20px;
+      box-shadow: 0 0 16px rgba(47,224,255,0.02) inset, 0 0 8px rgba(0,0,0,0.8);
+      /* Tăng thời gian chuyển động (0.4s) */
+      transition: box-shadow 0.4s ease-out, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative; /* Quan trọng cho pseudo-elements */
+    }
+    .icon:hover{ box-shadow: 0 0 32px rgba(47,224,255,0.32), 0 0 54px rgba(0,200,255,0.18); transform: translateY(-4px) scale(1.05); }
+
+    /* Custom Icon Styles (CSS-based shapes) */
+    
+    /* 1. Config Settings (Gear) - Thay thế cho icon rỗng ở Config Settings */
+    .icon-config::before {
+        content: '⚙️'; 
+        font-size: 24px;
+        position: absolute;
+        color: var(--neon);
+        opacity: 0.8;
+        filter: drop-shadow(0 0 4px var(--neon));
+        transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .card:hover .icon-config::before {
+        transform: rotate(60deg); 
+    }
+
+    /* 2. Custom Crosshair (Tâm Ảo) */
+    .icon-aim {
+        position: relative;
+    }
+    .icon-aim::before, .icon-aim::after {
+        content: '';
+        position: absolute;
+        background-color: var(--neon); 
+        opacity: 0.65;
+        box-shadow: 0 0 6px var(--neon);
+        transition: all 0.5s ease-out; 
+    }
+    /* Thanh ngang */
+    .icon-aim::before {
+        width: 60%; height: 2px; top: 50%; left: 20%; transform: translateY(-50%);
+    }
+    /* Thanh dọc */
+    .icon-aim::after {
+        width: 2px; height: 60%; top: 20%; left: 50%; transform: translateX(-50%);
+    }
+    /* Hiệu ứng khi hover (Tâm Ảo) */
+    .card:hover .icon-aim::before, .card:hover .icon-aim::after {
+        opacity: 1;
+    }
+
+
+    /* 3. DEVICE (Mobile/Chip) - Thay thế cho icon rỗng ở Device */
+    .icon-device::before {
+        content: '📱';
+        font-size: 24px;
+        position: absolute;
+        color: var(--neon);
+        opacity: 0.8;
+        filter: drop-shadow(0 0 4px var(--neon));
+        transition: transform 0.6s ease-out;
+    }
+    .card:hover .icon-device::before {
+        transform: scale(1.1);
+    }
+    
+    /* 4. CHẾ ĐỘ (Speed/Graph) - Thay thế cho icon rỗng ở Chế độ */
+    .icon-mode {
+        position: relative;
+        overflow: hidden;
+    }
+    .icon-mode::before, .icon-mode::after {
+        content: '';
+        position: absolute;
+        border-radius: 50%;
+        border: 2px solid var(--neon);
+        opacity: 0.8;
+        box-shadow: 0 0 6px var(--neon);
+        transition: all 0.6s ease-out;
+    }
+    /* Vòng tròn nhỏ */
+    .icon-mode::before {
+        width: 10px; height: 10px; top: 12px; left: 12px;
+    }
+    /* Vòng tròn lớn */
+    .icon-mode::after {
+        width: 20px; height: 20px; bottom: 12px; right: 12px;
+    }
+    /* Hiệu ứng khi hover */
+    .card:hover .icon-mode::before {
+        transform: translate(6px, 6px);
+    }
+    .card:hover .icon-mode::after {
+        transform: translate(-6px, -6px);
+    }
+
+
+    /* 5. DPI (Touch/Fingerprint) - Thay thế cho icon rỗng ở DPI */
+    .icon-dpi {
+        position: relative;
+    }
+    .icon-dpi::before {
+        content: '👆';
+        font-size: 24px;
+        position: absolute;
+        color: var(--neon);
+        opacity: 0.8;
+        filter: drop-shadow(0 0 4px var(--neon));
+        transition: transform 0.6s ease-out;
+    }
+    .card:hover .icon-dpi::before {
+        transform: scale(1.1) rotate(-15deg);
+    }
+
+
+    .meta{
+      display:flex;flex-direction:column;
+    }
+    .meta .title{font-weight:700;font-size:15px;color:#dff9ff}
+    .meta .small{font-size:12px;color:var(--muted)}
+
+    /* toggle (neon dạ quang) - Hiệu ứng mượt, chậm rãi hơn */
+    .toggle{
+      width:56px;height:30px;border-radius:20px;background:rgba(255,255,255,0.03);
+      padding:4px;display:flex;align-items:center;justify-content:flex-start;
+      position:relative;cursor:pointer;border:1px solid rgba(255,255,255,0.02);
+      /* ĐÃ TĂNG THỜI GIAN CHUYỂN ĐỘ lên 1.0s */
+      transition:all 1.0s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* Smooth ease-in-out */
+      box-shadow: 0 6px 18px rgba(47,224,255,0.02);
+    }
+    .toggle.on{justify-content:flex-end;background:linear-gradient(90deg,var(--neon),rgba(0,200,255,0.4)); box-shadow: 0 0 24px rgba(47,224,255,0.4);}
+    .toggle .knob{width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,0.4)}
+    /* Thêm hiệu ứng nhấp nháy nhẹ cho knob khi bật */
+    .toggle.on .knob{box-shadow: 0 0 10px rgba(255,255,255,0.6), 0 0 20px rgba(47,224,255,0.8);}
+
+    /* select style (buttons) - Hiệu ứng mượt, chậm rãi hơn */
+    .select{
+      min-width:140px;padding:10px 14px;border-radius:12px;background:rgba(255,255,255,0.02);
+      border:1px solid rgba(255,255,255,0.03);
+      display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;
+      /* Tăng thời gian chuyển động (0.35s) */
+      transition: box-shadow 0.35s ease, transform 0.35s ease;
+      box-shadow: 0 6px 16px rgba(47,224,255,0.03);
+    }
+    .select:hover{ box-shadow: 0 0 32px rgba(47,224,255,0.22); transform: translateY(-3px); }
+
+    .pill{padding:6px 10px;border-radius:8px;background:linear-gradient(90deg, rgba(0,0,0,0.18), rgba(255,255,255,0.01));font-weight:700; color:#e9fbff; border: 1px solid rgba(255,255,255,0.03);}
+
+    .small-muted{font-size:12px;color:var(--muted)}
+    
+    .meta .title, .pill, .select, .popup-title, .popup-item {
+        font-family: "Orbitron"; 
+    }
+    .meta .small, .small-muted, .subtitle {
+        font-family: "Inter", sans-serif; 
+    }
+
+
+    /* scrollbar slim for popups & main content */
+    .content::-webkit-scrollbar, .popup-list::-webkit-scrollbar{width:8px}
+    .content::-webkit-scrollbar-thumb, .popup-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.05);border-radius:8px}
+
+    /* popup center */
+    .popup-overlay{
+      position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+      background: rgba(2,6,10,0.55); z-index:99;backdrop-filter: blur(6px);
+    }
+    .popup-box{
+      width:78%;
+      max-width:380px;
+      max-height:58%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.008));
+      border-radius:16px;
+      padding:12px;
+      border:1px solid rgba(47,224,255,0.06);
+      box-shadow: 0 18px 60px rgba(47,224,255,0.14);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      transform: translateY(18px);
+      /* Tăng thời gian chuyển động popup (0.4s) */
+      transition: transform 0.4s cubic-bezier(.2,.9,.2,1), opacity .3s ease; 
+      opacity:0;
+    }
+    .popup-box.show{ transform: translateY(0); opacity:1; }
+
+    .popup-title{ color:var(--neon); text-align:center; font-weight:700; font-size:16px; text-shadow: 0 0 10px rgba(47,224,255,0.06); }
+    .popup-list{ overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column; gap:8px; padding:6px; -webkit-overflow-scrolling:touch; }
+    .popup-item{
+      padding:12px; border-radius:12px; text-align:center; background: rgba(255,255,255,0.02); cursor:pointer;
+      transition: transform .12s ease, box-shadow .14s ease;
+      border:1px solid rgba(255,255,255,0.03); font-weight:700;
+    }
+    .popup-item:hover{ transform: translateY(-4px); box-shadow: 0 12px 36px rgba(47,224,255,0.08); background: rgba(47,224,255,0.06); }
+
+    /* small responsive */
+    @media (max-width:420px){
+      .device{height:92vh;padding:16px;border-radius:20px}
+      .icon{width:48px;height:48px}
+    }
+
+  </style>
+</head>
+<body>
+  <div id="bg-wrap">
+    <canvas id="network"></canvas>
+  </div>
+
+  <div class="device" role="application" aria-label="DEV Nguyen Minh UI">
+    <header>
+      <div class="logo">NVM</div>
+      <div>
+        <h1>DEV Nguyen Van Minh</h1>
+        <div class="subtitle">SYSTEM GAME FREE FIRE TOUCH SMOOTH</div>
+      </div>
+    </header>
+
+    <div class="content" id="mainContent">
+      <div>
+        <div class="section-title">Chức năng</div>
+        <div style="height:10px"></div>
+
+        <div class="card" id="card-config">
+          <div class="left">
+            <div class="icon icon-config"></div> 
+            <div class="meta">
+              <div class="title">Config Settings</div>
+              <div class="small-muted">Tùy chỉnh cấu hình</div>
+            </div>
+          </div>
+          <div id="configToggle" class="toggle" role="switch" aria-checked="false">
+            <div class="knob"></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:8px" id="card-aim">
+          <div class="left">
+            <div class="icon icon-aim"></div>
+            <div class="meta">
+              <div class="title">Bật Tâm Ảo</div>
+              <div class="small-muted">Auto aim (mô phỏng)</div>
+            </div>
+          </div>
+          <div id="aimToggle" class="toggle" role="switch" aria-checked="false">
+            <div class="knob"></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title" style="margin-top:12px">Lux Sensi</div>
+        <div style="height:10px"></div>
+
+        <div class="card" style="margin-bottom:8px">
+          <div class="left">
+            <div class="icon icon-device"></div>
+            <div class="meta">
+              <div class="title">DEVICE:</div>
+              <div class="small-muted">CPH2237</div>
+            </div>
+          </div>
+          <div class="small-muted"></div>
+        </div>
+        
+        <div class="card" style="margin-bottom:8px">
+            <div class="left">
+                <div class="icon icon-mode"></div>
+                <div class="meta">
+                    <div class="title">CHẾ ĐỘ</div>
+                    <div class="small-muted">Chọn tốc độ phản hồi</div>
+                </div>
+            </div>
+            <div id="modeSelect" class="select" tabindex="0" aria-haspopup="listbox" role="button">
+                <div id="modeText">Mượt Mà</div>
+                <div class="pill">▶</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="left">
+                <div class="icon icon-dpi"></div>
+                <div class="meta">
+                    <div class="title">DPI</div>
+                    <div class="small-muted">Điều chỉnh độ nhạy</div>
+                </div>
+            </div>
+            <div id="dpiSelect" class="select pill" tabindex="0" aria-haspopup="listbox" role="button">2x</div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="height:12px"></div>
+  </div>
+
+  <div id="popupOverlay" class="popup-overlay" aria-hidden="true">
+    <div id="popupBox" class="popup-box" role="dialog" aria-modal="true">
+      <div id="popupTitle" class="popup-title">Chọn</div>
+      <div id="popupList" class="popup-list" role="listbox" tabindex="0">
+        </div>
+    </div>
+  </div>
+
+  <script>
+    /* ===== particle network (nốt sao + nối dây chuyển động) =====
+       - canvas fills screen
+       - more particles, stronger glow and subtle color shift
+    */
+    const canvas = document.getElementById('network');
+    const ctx = canvas.getContext('2d', { alpha: true });
+    const DPR = Math.min(window.devicePixelRatio || 1.5, 2);
+
+    function resizeCanvas(){
+      canvas.width = innerWidth * DPR;
+      canvas.height = innerHeight * DPR;
+      canvas.style.width = innerWidth + 'px';
+      canvas.style.height = innerHeight + 'px';
+      ctx.setTransform(DPR,0,0,DPR,0,0);
+    }
+    resizeCanvas();
+    addEventListener('resize', resizeCanvas);
+
+    const config = {
+      // TĂNG SỐ LƯỢNG HẠT LÊN 60
+      count: Math.max(60, Math.floor((innerWidth * innerHeight) / 25000)), 
+      maxLink: 160,
+      speed: 0.45,
+      colorA: [47,224,255],
+      colorB: [120,200,255],
+      glow: 'rgba(0,210,255,0.12)'
+    };
+
+    const particles = [];
+    function rand(min, max){ return Math.random() * (max - min) + min }
+
+    function Particle(){
+      this.x = rand(0, innerWidth);
+      this.y = rand(0, innerHeight);
+      const angle = rand(0, Math.PI * 2);
+      this.vx = Math.cos(angle) * rand(0.06, 0.9) * config.speed;
+      this.vy = Math.sin(angle) * rand(0.06, 0.9) * config.speed;
+      this.r = rand(1.2, 3.2);
+      this.alpha = rand(0.25, 0.98);
+      this.phase = Math.random() * Math.PI * 2;
+    }
+    Particle.prototype.move = function(){
+      // gentle bobbing for more animation
+      this.phase += 0.02 + Math.random()*0.02;
+      this.x += this.vx + Math.sin(this.phase)*0.2;
+      this.y += this.vy + Math.cos(this.phase)*0.2;
+
+      // wrap around edges
+      if (this.x < -20) this.x = innerWidth + 20;
+      if (this.x > innerWidth + 20) this.x = -20;
+      if (this.y < -20) this.y = innerHeight + 20;
+      if (this.y > innerHeight + 20) this.y = -20;
+    }
+    Particle.prototype.draw = function(){
+      ctx.beginPath();
+      ctx.globalAlpha = this.alpha;
+      // gradient-ish fill
+      const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r*6);
+      g.addColorStop(0, 'rgba(47,224,255,'+ (0.9*this.alpha) +')');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+      ctx.fill();
+      ctx.closePath();
+      ctx.globalAlpha = 1;
+    }
+
+    function initParticles(){
+      particles.length = 0;
+      for(let i=0;i<config.count;i++) particles.push(new Particle());
+    }
+
+    function connectAndDraw(){
+      ctx.clearRect(0,0,innerWidth,innerHeight);
+
+      // subtle animated background overlay
+      ctx.fillStyle = 'rgba(2,8,14,0.12)';
+      ctx.fillRect(0,0,innerWidth,innerHeight);
+
+      for (let i=0;i<particles.length;i++){
+        const p = particles[i];
+        p.move();
+        p.draw();
+        for (let j=i+1;j<particles.length;j++){
+          const q = particles[j];
+          const dx = p.x - q.x;
+          const dy = p.y - q.y;
+          const d = Math.sqrt(dx*dx + dy*dy);
+          if (d < config.maxLink){
+            const alpha = 1 - (d / config.maxLink);
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(${config.colorA[0]},${config.colorA[1]},${config.colorA[2]},${(alpha*0.12)})`;
+            ctx.lineWidth = 1; ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke(); ctx.closePath();
+
+            // glow stroke
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(${config.colorB[0]},${config.colorB[1]},${config.colorB[2]},${(alpha*0.03)})`;
+            ctx.lineWidth = 6 * (alpha * 0.02);
+            ctx.stroke(); ctx.closePath();
+          }
+        }
+      }
+
+      // global subtle glow layer that pulses
+      const t = Date.now() * 0.001;
+      const pulse = (Math.sin(t*1.6) + 1) * 0.02 + 0.02;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = `rgba(0,180,230,${0.06 + pulse})`;
+      ctx.fillRect(0,0,innerWidth,innerHeight);
+      ctx.restore();
+
+      requestAnimationFrame(connectAndDraw);
+    }
+
+    initParticles();
+    requestAnimationFrame(connectAndDraw);
+
+    /* ===== UI toggles simple behavior & neon effects ===== */
+    function bindToggle(id){
+      const el = document.getElementById(id);
+      el.addEventListener('click', () => {
+        const on = el.classList.toggle('on');
+        el.setAttribute('aria-checked', on ? 'true' : 'false');
+        if(id === 'configToggle'){
+          // change particle speed as demo
+          config.speed = on ? 0.9 : 0.45;
+          particles.forEach(p => {
+            p.vx *= (on ? 1.8 : 0.55);
+            p.vy *= (on ? 1.8 : 0.55);
+          });
+        }
+        if(id === 'aimToggle'){
+          // visual feedback: change link distance
+          config.maxLink = on ? 240 : 160;
+        }
+      });
+    }
+    bindToggle('configToggle');
+    bindToggle('aimToggle');
+
+    /* ===== Popup logic for Mode & DPI selection ===== */
+    const MODE_OPTIONS = ["Mượt Mà","Nhanh","Siêu Nhạy","Ổn Định"];
+    const DPI_OPTIONS = ["2x","4x","6x","8x"];
+
+    const popupOverlay = document.getElementById('popupOverlay');
+    const popupBox = document.getElementById('popupBox');
+    const popupTitle = document.getElementById('popupTitle');
+    const popupList = document.getElementById('popupList');
+
+    let currentPicker = null; // "mode" or "dpi"
+    let currentTargetEl = null;
+
+    function openPicker(type, targetEl){
+      currentPicker = type;
+      currentTargetEl = targetEl;
+      popupList.innerHTML = '';
+      popupTitle.textContent = (type === 'mode') ? 'Chọn Chế Độ' : 'Chọn DPI';
+
+      const arr = (type === 'mode') ? MODE_OPTIONS : DPI_OPTIONS;
+      arr.forEach(opt => {
+        const item = document.createElement('div');
+        item.className = 'popup-item';
+        item.setAttribute('role','option');
+        item.textContent = opt;
+        item.addEventListener('click', () => {
+          applySelection(type, opt, targetEl);
+          closePicker();
+        });
+        popupList.appendChild(item);
+      });
+
+      // show overlay & animate
+      popupOverlay.style.display = 'flex';
+      setTimeout(()=> popupBox.classList.add('show'), 10);
+      popupOverlay.setAttribute('aria-hidden','false');
+
+      // ensure vertical-only scroll inside popup
+      popupList.scrollTop = 0;
+    }
+
+    function closePicker(){
+      popupBox.classList.remove('show');
+      setTimeout(()=> {
+        popupOverlay.style.display = 'none';
+        popupOverlay.setAttribute('aria-hidden','true');
+      }, 300); // Kéo dài thời gian đóng popup
+      currentPicker = null; currentTargetEl = null;
+    }
+
+    function applySelection(type, value, targetEl){
+      if(type === 'mode'){
+        const textEl = document.getElementById('modeText');
+        if(textEl) textEl.textContent = value;
+      } else if(type === 'dpi'){
+        // dpi target is the dpiSelect div
+        if(targetEl) targetEl.textContent = value;
+      }
+    }
+
+    // open events
+    document.getElementById('modeSelect').addEventListener('click', (e) => openPicker('mode', e.currentTarget));
+    document.getElementById('modeSelect').addEventListener('keydown', (e) => { if(e.key==='Enter') openPicker('mode', e.currentTarget); });
+    document.getElementById('dpiSelect').addEventListener('click', (e) => openPicker('dpi', e.currentTarget));
+    document.getElementById('dpiSelect').addEventListener('keydown', (e) => { if(e.key==='Enter') openPicker('dpi', e.currentTarget); });
+
+    // close when clicking outside box
+    popupOverlay.addEventListener('click', (e) => {
+      if(e.target === popupOverlay) closePicker();
+    });
+
+    /* prevent horizontal scrolling/bounce on mobile */
+    let touchStartX = 0, touchStartY = 0;
+    document.addEventListener('touchstart', function(e){
+      if(e.touches && e.touches[0]){
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }
+    }, {passive:true});
+    document.addEventListener('touchmove', function(e){
+      if(!e.touches || !e.touches[0]) return;
+      const dx = Math.abs(e.touches[0].clientX - touchStartX);
+      const dy = Math.abs(e.touches[0].clientY - touchStartY);
+      // if horizontal movement dominates, prevent it to lock horizontal scroll
+      if(dx > dy && dx > 8){
+        e.preventDefault();
+      }
+    }, {passive:false});
+
+    // Accessibility: close popup with Escape
+    document.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape' && popupOverlay.style.display === 'flex') closePicker();
+    });
+
+    // small helper: show a tiny neon flash when selection applied
+    function flashNeon(el){
+      if(!el) return;
+      // Tăng thời gian flash lên 350ms
+      const flashDuration = 350; 
+      const old = el.style.boxShadow;
+      el.style.boxShadow = '0 0 32px rgba(47,224,255,0.62)';
+      setTimeout(()=> el.style.boxShadow = old, flashDuration);
+    }
+
+    // update visually when selection is applied programmatically
+    const originalModeEl = document.getElementById('modeSelect');
+    const originalDpiEl = document.getElementById('dpiSelect');
+    const observer = new MutationObserver(()=> {
+      // flash when changed
+      flashNeon(originalModeEl);
+      flashNeon(originalDpiEl);
+    });
+    observer.observe(originalModeEl, { subtree: true, childList: true });
+    observer.observe(originalDpiEl, { subtree: true, childList: true });
+
+    /* small enhancements: click ripple on popup items */
+    popupList.addEventListener('click', (e) => {
+      const it = e.target.closest('.popup-item');
+      if(!it) return;
+      it.style.transform = 'scale(0.96)'; // Giảm scale mượt hơn
+      setTimeout(()=> it.style.transform = '', 180); // Tăng thời gian trả về
+    });
+
+    /* init aria roles */
+    document.getElementById('modeSelect').setAttribute('role','button');
+    document.getElementById('dpiSelect').setAttribute('role','button');
+
+  </script>
+</body>
+</html>
